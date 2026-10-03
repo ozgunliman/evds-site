@@ -76,6 +76,37 @@ konular["CATEGORY_ID"] = temizle(konular["CATEGORY_ID"])
 konular["UST_CATEGORY_ID"] = temizle(konular["UST_CATEGORY_ID"])
 gruplar["CATEGORY_ID"] = temizle(gruplar["CATEGORY_ID"])
 
+
+def sadelestir(metin):
+    # "ARŞİV", "Arşiv" gibi yazılışları karşılaştırabilmek için harfleri sadeleştirir
+    metin = str(metin).strip()
+    for eski, yeni in {"İ": "I", "ı": "I", "i": "I", "Ş": "S", "ş": "S"}.items():
+        metin = metin.replace(eski, yeni)
+    return metin.upper()
+
+
+# --- ARŞİV konusunu ve ona bağlı her şeyi listeden çıkar ---
+GIZLENECEK_KONULAR = {"ARSIV", "ARCHIVE"}
+
+ana_konular = konular[~konular["UST_CATEGORY_ID"].isin(set(konular["CATEGORY_ID"]))]
+gizli_mi = ana_konular["TOPIC_TITLE_TR"].apply(sadelestir).isin(GIZLENECEK_KONULAR) | ana_konular[
+    "TOPIC_TITLE_ENG"
+].apply(sadelestir).isin(GIZLENECEK_KONULAR)
+cikarilacak = set(ana_konular.loc[gizli_mi, "CATEGORY_ID"])
+
+# Bu konuların alt konularını (ve onların alt konularını) da bul
+yeni_bulunanlar = set(cikarilacak)
+while yeni_bulunanlar:
+    alt_konular = (
+        set(konular.loc[konular["UST_CATEGORY_ID"].isin(yeni_bulunanlar), "CATEGORY_ID"])
+        - cikarilacak
+    )
+    cikarilacak |= alt_konular
+    yeni_bulunanlar = alt_konular
+
+konular = konular[~konular["CATEGORY_ID"].isin(cikarilacak)]
+gruplar = gruplar[~gruplar["CATEGORY_ID"].isin(cikarilacak)]
+
 konu_adi = dict(zip(konular["CATEGORY_ID"], konular["TOPIC_TITLE_TR"]))
 tum_konu_kodlari = set(konular["CATEGORY_ID"])
 
